@@ -8,11 +8,18 @@ import (
 	"strconv"
 )
 
-func (s *Inmem) GetAllBooks(ctx *macaron.Context) {
-	ctx.JSON(200, s.store)
+func GetAllBooks(ctx *macaron.Context) {
+	var books []Book
+	if err := engine.Find(&books); err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+	ctx.JSON(200, books)
 }
 
-func (s *Inmem) GetBook(ctx *macaron.Context) {
+func GetBook(ctx *macaron.Context) {
 	id := ctx.Params(":id")
 	if id == "" {
 		ctx.JSON(http.StatusBadRequest, map[string]string{
@@ -21,21 +28,26 @@ func (s *Inmem) GetBook(ctx *macaron.Context) {
 		return
 	}
 
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
+	var b Book
 
-	if b, ok := s.store[id]; ok {
+	if has, err := engine.ID(id).NoAutoCondition().Get(&b); has && err == nil {
 		ctx.JSON(http.StatusOK, b)
 		return
 	} else {
-		ctx.JSON(http.StatusNotFound, map[string]string{
-			"error": "book not found",
-		})
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, map[string]string{
+				"error": err.Error(),
+			})
+		} else {
+			ctx.JSON(http.StatusOK, map[string]string{
+				"error": "book not found",
+			})
+		}
 		return
 	}
 }
 
-func (s *Inmem) CreateBook(ctx *macaron.Context) {
+func CreateBook(ctx *macaron.Context) {
 	b := &Book{}
 	payload, err := ctx.Req.Body().Bytes()
 	if err != nil {
@@ -53,7 +65,7 @@ func (s *Inmem) CreateBook(ctx *macaron.Context) {
 		return
 	}
 
-	b.ID = strconv.Itoa(rand.Int())
+	b.ID = rand.Int()
 
 	err = b.Validate()
 	if err != nil {
@@ -63,33 +75,44 @@ func (s *Inmem) CreateBook(ctx *macaron.Context) {
 		return
 	}
 
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
-	s.store[b.ID] = *b
+	if _, err := engine.InsertOne(b); err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
 	ctx.JSON(http.StatusOK, map[string]string{
 		"msg": "book added successfully",
 	})
 }
 
-func (s *Inmem) EditBook(ctx *macaron.Context) {
+func EditBook(ctx *macaron.Context) {
 	var oldB Book
-	id := ctx.Params(":id")
-	if id == "" {
+	idS := ctx.Params(":id")
+	if idS == "" {
 		ctx.JSON(http.StatusBadRequest, map[string]string{
 			"error": "id must be non empty",
 		})
 		return
 	}
 
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
+	id, err := strconv.Atoi(idS)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
 
-	if b, ok := s.store[id]; ok {
-		oldB = b
-	} else {
-		ctx.JSON(http.StatusNotFound, map[string]string{
-			"error": "book not found",
+	oldB.ID = id
+	if has, err := engine.Get(&oldB); err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	} else if !has {
+		ctx.JSON(http.StatusBadRequest, map[string]string{
+			"error": "book does not exists",
 		})
 		return
 	}
@@ -111,33 +134,43 @@ func (s *Inmem) EditBook(ctx *macaron.Context) {
 		return
 	}
 
-	s.store[id] = Merge(oldB, *newB)
+	finalB := Merge(oldB, *newB)
+	if _, err := engine.Update(finalB); err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
 	ctx.JSON(http.StatusOK, map[string]string{
 		"msg": "book updated successfully",
 	})
 }
 
-func (s *Inmem) DeleteBook(ctx *macaron.Context) {
-	id := ctx.Params(":id")
-	if id == "" {
+func DeleteBook(ctx *macaron.Context) {
+	idS := ctx.Params(":id")
+	if idS == "" {
 		ctx.JSON(http.StatusBadRequest, map[string]string{
 			"error": "id must be non empty",
 		})
 		return
 	}
 
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
+	id, err := strconv.Atoi(idS)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
 
-	if _, ok := s.store[id]; ok {
-		delete(s.store, id)
+	if _, err := engine.Delete(&Book{ID:id}); err == nil {
 		ctx.JSON(http.StatusOK, map[string]string{
 			"msg": "book deleted successfully",
 		})
 		return
 	} else {
-		ctx.JSON(http.StatusNotFound, map[string]string{
-			"error": "book not found",
+		ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
 		})
 		return
 	}
