@@ -2,12 +2,16 @@ package main
 
 import (
 	"github.com/nightfury1204/demo-macaron/pkg"
+	"log"
 	"gopkg.in/macaron.v1"
 	"net/http"
 )
 
 func main() {
-	store := pkg.NewInmemStorage()
+	// store := pkg.NewInmemStorage()
+    if err := pkg.InitDBEngine("root:root@tcp(127.0.0.1:3306)/library?charset=utf8"); err != nil {
+		log.Fatal(err)
+	}
 
 	m := macaron.Classic()
 
@@ -18,13 +22,13 @@ func main() {
 	})
 
 	m.Group("/books", func() {
-		m.Combo("").Get(store.GetAllBooks). // get all books
-			Post(store.CreateBook) // add new book
+		m.Combo("").Get(pkg.GetAllBooks). // get all books
+			Post(pkg.CreateBook) // add new book
 
 		m.Combo("/:id").
-			Get(store.GetBook). // get the specific book
-			Put(store.EditBook). // update book info
-			Delete(store.DeleteBook) // delete book
+			Get(pkg.GetBook). // get the specific book
+			Put(pkg.EditBook). // update book info
+			Delete(pkg.DeleteBook) // delete book
 	})
 
 	m.Run()
