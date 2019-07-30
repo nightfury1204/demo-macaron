@@ -2,15 +2,16 @@ package pkg
 
 import (
 	"encoding/json"
-	"gopkg.in/macaron.v1"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"sync"
+
+	"gopkg.in/macaron.v1"
 )
 
 type Inmem struct {
-	mtx sync.Mutex
+	mtx   sync.Mutex
 	store map[string]Book
 }
 
@@ -19,7 +20,6 @@ func NewInmemStorage() *Inmem {
 		store: map[string]Book{},
 	}
 }
-
 
 func (s *Inmem) GetAllBooks(ctx *macaron.Context) {
 	ctx.JSON(200, s.store)

@@ -1,11 +1,12 @@
-package pkg
+package models
 
 import (
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/go-xorm/core"
-	"github.com/go-xorm/xorm"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-xorm/xorm"
+	"xorm.io/core"
 )
 
 var (
@@ -39,11 +40,11 @@ func GetDBEngine() (*xorm.Engine, error) {
 }
 
 type Book struct {
-	ID int `json:"id" xorm:"int not null unique 'id'"`
-	Name string `json:"name" xorm:"varchar(25) not null 'name'"`
-	Author string `json:"author" xorm:"varchar(25) 'author'"`
+	ID          int    `json:"id" xorm:"int not null unique 'id'"`
+	Name        string `json:"name" xorm:"varchar(25) not null 'name'"`
+	Author      string `json:"author" xorm:"varchar(25) 'author'"`
 	Description string `json:"description,omitempty" xorm:"varchar(255) 'description'"`
-	Price *int `json:"price,omitempty" xorm:"int 'price'"`
+	Price       *int   `json:"price,omitempty" xorm:"int 'price'"`
 }
 
 func (b *Book) Validate() error {

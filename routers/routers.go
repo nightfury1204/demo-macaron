@@ -1,15 +1,24 @@
-package pkg
+package routers
 
 import (
 	"encoding/json"
-	"gopkg.in/macaron.v1"
 	"math/rand"
 	"net/http"
 	"strconv"
+
+	"github.com/nightfury1204/demo-macaron/models"
+	"gopkg.in/macaron.v1"
 )
 
 func GetAllBooks(ctx *macaron.Context) {
-	var books []Book
+	var books []models.Book
+	engine, err := models.GetDBEngine()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
 	if err := engine.Find(&books); err != nil {
 		ctx.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),
@@ -28,7 +37,14 @@ func GetBook(ctx *macaron.Context) {
 		return
 	}
 
-	var b Book
+	var b models.Book
+	engine, err := models.GetDBEngine()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	if has, err := engine.ID(id).NoAutoCondition().Get(&b); has && err == nil {
 		ctx.JSON(http.StatusOK, b)
@@ -48,7 +64,7 @@ func GetBook(ctx *macaron.Context) {
 }
 
 func CreateBook(ctx *macaron.Context) {
-	b := &Book{}
+	b := &models.Book{}
 	payload, err := ctx.Req.Body().Bytes()
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, map[string]string{
@@ -75,6 +91,14 @@ func CreateBook(ctx *macaron.Context) {
 		return
 	}
 
+	engine, err := models.GetDBEngine()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
 	if _, err := engine.InsertOne(b); err != nil {
 		ctx.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),
@@ -87,7 +111,7 @@ func CreateBook(ctx *macaron.Context) {
 }
 
 func EditBook(ctx *macaron.Context) {
-	var oldB Book
+	var oldB models.Book
 	idS := ctx.Params(":id")
 	if idS == "" {
 		ctx.JSON(http.StatusBadRequest, map[string]string{
@@ -105,6 +129,15 @@ func EditBook(ctx *macaron.Context) {
 	}
 
 	oldB.ID = id
+
+	engine, err := models.GetDBEngine()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
 	if has, err := engine.Get(&oldB); err != nil {
 		ctx.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),
@@ -117,7 +150,7 @@ func EditBook(ctx *macaron.Context) {
 		return
 	}
 
-	newB := &Book{}
+	newB := &models.Book{}
 	payload, err := ctx.Req.Body().Bytes()
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, map[string]string{
@@ -134,7 +167,7 @@ func EditBook(ctx *macaron.Context) {
 		return
 	}
 
-	finalB := Merge(oldB, *newB)
+	finalB := models.Merge(oldB, *newB)
 	if _, err := engine.Update(finalB); err != nil {
 		ctx.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),
@@ -163,7 +196,15 @@ func DeleteBook(ctx *macaron.Context) {
 		return
 	}
 
-	if _, err := engine.Delete(&Book{ID:id}); err == nil {
+	engine, err := models.GetDBEngine()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if _, err := engine.Delete(&models.Book{ID: id}); err == nil {
 		ctx.JSON(http.StatusOK, map[string]string{
 			"msg": "book deleted successfully",
 		})
